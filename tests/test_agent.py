@@ -42,3 +42,10 @@ def test_taste_produces_varied_scores():
 def test_unknown_city_still_terminates():
     route = _agent().plan("Nowhere", "curious", 120)
     assert len(route.trace) <= CultureAgent.MAX_STEPS
+
+
+def test_no_item_below_zero_score():
+    taste = TasteProfile()
+    taste.observe(["science"], liked=True)
+    route = CultureAgent(QlooClient(offline=True), taste).plan("Berlin", "curious", 240)
+    assert all(item.score > 0 for item in route.items)

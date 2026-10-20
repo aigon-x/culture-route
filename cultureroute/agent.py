@@ -111,9 +111,9 @@ class CultureAgent:
                     continue
                 if best is None or score > best[0]:
                     best = (score, entity, tags, duration)
-            if best is None:
+            if best is None or best[0] <= 0:
                 route.trace.append({"step": step, "kind": kind, "decision": "skip",
-                                    "reason": "no candidate fits the remaining time"})
+                                    "reason": "no candidate fits the time budget with positive affinity"})
                 continue
             score, entity, tags, duration = best
             used.add(entity.get("entity_id") or entity.get("name", ""))
