@@ -19,7 +19,9 @@ CLI (cli.py)
 
 ## Przepływ danych
 `--city/--mood/--minutes` → agent wybiera typ → `QlooClient.get` → lista encji z tagami →
-score = affinity + bonus nastroju → najlepsza niewidziana pozycja → budżet -= czas →
+score = affinity + 0,3 × (trafione tagi nastroju / wszystkie tagi nastroju) →
+remis: więcej trafień, potem nazwa (nigdy kolejność z API) → najlepsza niewidziana
+pozycja → budżet -= czas →
 wpis w trace → koniec przy budżecie 0 lub 6 krokach → wydruk/JSON.
 
 ## Znane granice

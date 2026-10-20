@@ -67,11 +67,28 @@ class CultureAgent:
         results = payload.get("results", {})
         return results.get("entities", []) if isinstance(results, dict) else results
 
-    def _score(self, entity: dict, mood_tags: list[str]) -> tuple[float, list[str]]:
+    def _score(self, entity: dict, mood_tags: list[str]) -> tuple[float, list[str], int]:
+        """Affinity plus a mood bonus graded by how many mood tags the entity matches.
+
+        The previous binary bonus gave every mood-matching candidate the same 0.3, so with
+        an empty profile the route was decided by the order the API happened to return.
+        """
         tags = [str(t).lower() for t in entity.get("tags", [])]
         affinity = self.taste.affinity(tags)
-        mood_bonus = 0.3 if set(tags) & set(mood_tags) else 0.0
-        return affinity + mood_bonus, tags
+        matched = len(set(tags) & set(mood_tags))
+        mood_weight = 0.3 * matched / len(mood_tags) if mood_tags else 0.0
+        return affinity + mood_weight, tags, matched
+
+    @staticmethod
+    def _ranks_before(candidate: tuple[float, int, str], incumbent: tuple[float, int, str]) -> bool:
+        """Score, then the number of mood matches, then the name - never the API order."""
+        score, matched, name = candidate
+        best_score, best_matched, best_name = incumbent
+        if score != best_score:
+            return score > best_score
+        if matched != best_matched:
+            return matched > best_matched
+        return name < best_name
 
     def plan(self, city: str, mood: str, minutes: int) -> Route:
         route = Route(city=city, mood=mood)
@@ -104,24 +121,25 @@ class CultureAgent:
                 key = entity.get("entity_id") or entity.get("name", "")
                 if key in used:
                     continue
-                score, tags = self._score(entity, mood_tags)
+                score, tags, matched = self._score(entity, mood_tags)
                 duration = int((entity.get("properties") or {}).get(
                     "typical_minutes", DEFAULT_MINUTES[kind]))
                 if duration > budget:
                     continue
-                if best is None or score > best[0]:
-                    best = (score, entity, tags, duration)
-            if best is None or best[0] <= 0:
+                rank = (score, matched, str(entity.get("name", "")))
+                if best is None or self._ranks_before(rank, best[0]):
+                    best = (rank, entity, tags, duration)
+            if best is None or best[0][0] <= 0:
                 route.trace.append({"step": step, "kind": kind, "decision": "skip",
                                     "reason": "no candidate fits the time budget with positive affinity"})
                 continue
-            score, entity, tags, duration = best
+            rank, entity, tags, duration = best
+            score, matched = rank[0], rank[1]
             used.add(entity.get("entity_id") or entity.get("name", ""))
             route.items.append(RouteItem(
                 kind=kind, name=entity.get("name", "unknown"), tags=tags,
                 score=round(float(score), 3), minutes=duration,
-                why=f"affinity {self.taste.affinity(tags):.2f}, mood match "
-                    f"{'yes' if set(tags) & set(mood_tags) else 'no'}"))
+                why=f"affinity {self.taste.affinity(tags):.2f}, mood {matched}/{len(mood_tags)}"))
             route.trace.append({"step": step, "kind": kind, "decision": "accept",
                                 "name": entity.get("name"), "score": round(float(score), 3)})
             budget -= duration

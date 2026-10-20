@@ -20,8 +20,9 @@ Tryb `--offline` korzysta z deterministycznych fixtures i jest jawnie oznaczony 
 Tryb live wymaga `QLOO_API_KEY`; bez klucza CLI kończy się kodem 3 i czytelnym komunikatem.
 
 ## Ograniczenia
-- Model gustu to suma wag tagów, nie embeddingi; dla małych profili affinity bywa 0 i decyduje
-  dopasowanie do nastroju.
+- Model gustu to suma wag tagów, nie embeddingi; przy pustym profilu decyduje stopień
+  dopasowania do nastroju (0,3 × trafione/wszystkie), a remis rozstrzyga nazwa — trasa jest
+  powtarzalna, ale nie twierdzimy, że jest „najlepsza” kulturalnie.
 - Fixtures pokrywają cztery ścieżki Qloo; live korzysta z `https://hackathon.api.qloo.com` i wymaga klucza
   z formularza organizatora.
 - Brak geolokalizacji trasy — kolejność wynika z budżetu i trafności, nie z odległości.

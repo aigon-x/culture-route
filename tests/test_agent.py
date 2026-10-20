@@ -1,4 +1,7 @@
-from cultureroute.agent import CultureAgent
+import json
+import random
+
+from cultureroute.agent import CultureAgent, MOOD_TAGS
 from cultureroute.qloo import QlooClient
 from cultureroute.taste import TasteProfile
 
@@ -49,3 +52,33 @@ def test_no_item_below_zero_score():
     taste.observe(["science"], liked=True)
     route = CultureAgent(QlooClient(offline=True), taste).plan("Berlin", "curious", 240)
     assert all(item.score > 0 for item in route.items)
+
+
+def _shuffled_agent(seed: int) -> CultureAgent:
+    """Same fixtures, different order - what a real API is free to return."""
+    from cultureroute.qloo import FIXTURES
+
+    payload = json.loads(open(FIXTURES, encoding="utf-8").read())
+    random.Random(seed).shuffle(payload["/v2/insights"]["results"]["entities"])
+    client = QlooClient(offline=True)
+    client._fixtures = payload
+    return CultureAgent(client, TasteProfile())
+
+
+def test_cold_start_scores_differentiate_by_mood_overlap():
+    """An empty profile used to give every mood-matching candidate exactly 0.3."""
+    route = CultureAgent(QlooClient(offline=True), TasteProfile()).plan("Berlin", "curious", 240)
+    scores = [item.score for item in route.items]
+    assert len(set(scores)) > 1, f"cold start is undifferentiated: {scores}"
+    top = {t.lower() for t in route.items[0].tags}
+    assert len(top & set(MOOD_TAGS["curious"])) >= 2
+    assert f"/{len(MOOD_TAGS['curious'])}" in route.items[0].why
+
+
+def test_plan_does_not_depend_on_entity_order():
+    """Ties must be broken by the rules, never by the order the API returned."""
+    for mood in ("curious", "reflective"):
+        baseline = [(i.kind, i.name, i.score) for i in _shuffled_agent(0).plan("Berlin", mood, 240).items]
+        for seed in range(1, 6):
+            variant = [(i.kind, i.name, i.score) for i in _shuffled_agent(seed).plan("Berlin", mood, 240).items]
+            assert variant == baseline, f"seed {seed} reordered the route for {mood}"
