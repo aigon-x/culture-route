@@ -12,6 +12,8 @@ import urllib.request
 DEFAULT_BASE = "https://hackathon.api.qloo.com"
 FIXTURES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "fixtures", "offline_responses.json")
+RETRYABLE_STATUS = frozenset({408, 429, 500, 502, 503, 504})
+MAX_RETRY_AFTER = 5.0
 
 
 class QlooConfigError(RuntimeError):
@@ -66,7 +68,7 @@ class QlooClient:
         return {"results": {"entities": picked}}
 
     def get(self, path: str, **params) -> dict:
-        """GET path with cache (120 s) and retry on 5xx/timeout."""
+        """GET path with cache (120 s); retries only what can succeed on a retry."""
         cache_key = self._key(path, params)
         hit = self._cache.get(cache_key)
         if hit and time.time() - hit[0] < 120:
@@ -91,6 +93,33 @@ class QlooClient:
                 return payload
             except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
                 last = exc
-                if attempt < self.retries:
-                    time.sleep(0.2 * (attempt + 1))
+                delay = self._retry_delay(exc, attempt)
+                if delay is None or attempt >= self.retries:
+                    break
+                time.sleep(delay)
+        if isinstance(last, urllib.error.HTTPError):
+            raise RuntimeError(
+                f"Qloo rejected the request: HTTP {last.code} {last.reason} "
+                f"(retryable={last.code in RETRYABLE_STATUS})")
         raise RuntimeError(f"Qloo request failed after {self.retries + 1} attempts: {last}")
+
+    @staticmethod
+    def _retry_delay(exc: Exception, attempt: int) -> float | None:
+        """Seconds to wait before the next attempt; None means this attempt was the last.
+
+        A 401/403/404 will never succeed on a retry, so retrying it only burns the quota
+        and delays the error the user needs to read. 429 and 5xx are worth another try,
+        and a Retry-After header is an explicit instruction, not a suggestion.
+        """
+        base = 0.2 * (attempt + 1)
+        if not isinstance(exc, urllib.error.HTTPError):
+            return base
+        if exc.code not in RETRYABLE_STATUS:
+            return None
+        header = exc.headers.get("Retry-After") if exc.headers else None
+        if header:
+            try:
+                return max(0.0, min(float(header), MAX_RETRY_AFTER))
+            except (TypeError, ValueError):
+                return base
+        return base

@@ -111,3 +111,32 @@ Zrzuty: `evidence/webui-route-desktop.png`, `evidence/webui-route-mobile.png`,
 To jest ten sam agent co w CLI: `POST /api/plan` woła `CultureAgent.plan` bez zmian, a tryb
 w nagłówku pochodzi z obecności `QLOO_API_KEY`. Nie mierzyliśmy tu żywego Qloo — strona
 w tym przebiegu działała na fixtures.
+
+## Retry policy klienta Qloo (2026-10-20)
+
+`ARCHITECTURE.md` deklarował „Retry dotyczy 5xx/timeoutów; 4xx lecą od razu jako błąd",
+a `QlooClient.get` łapał **każdy** `HTTPError` i ponawiał go dwa razy z odstępem 0,2/0,4 s.
+Zły klucz albo literówka w parametrze kosztowały trzy żądania i 0,6 s, zanim użytkownik
+zobaczył błąd; `Retry-After` z 429 był ignorowany. Testów ścieżki live nie było wcale.
+
+Po zmianie ponawiane są tylko statusy, które mogą się udać (`408, 429, 500, 502, 503, 504`),
+`Retry-After` jest respektowany (z sufitem 5 s), a 4xx kończy się natychmiast z kodem w treści.
+
+Zmierzone w testach z podstawionym `urlopen` (liczba wywołań, nie opinia):
+
+```
+HTTP 401  -> 1 wywołanie, RuntimeError "Qloo rejected the request: HTTP 401 ... (retryable=False)"
+HTTP 429  -> 3 wywołania (dwa z Retry-After: 0), potem sukces; sleep == [0.0, 0.0]
+HTTP 503  -> 3 wywołania (retries=2), potem RuntimeError z HTTP 503
+```
+
+Regresja: `tests/test_qloo.py::test_terminal_4xx_is_not_retried`,
+`::test_rate_limit_is_retried_and_retry_after_is_honoured`,
+`::test_server_error_is_retried_then_reported`. Ablacja (powrót do „ponawiaj wszystko")
+→ dwa pierwsze czerwone.
+
+```
+$ python3 -m pytest tests -q -p no:warnings
+.......................                                                  [100%]
+23 passed
+```

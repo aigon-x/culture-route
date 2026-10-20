@@ -11,7 +11,7 @@ trafienia w gust, skraca budżet, kończy gdy czas się wyczerpie albo limit kro
 
 ## Uruchomienie
 ```bash
-python3 -m pytest tests -q                 # 20 testów
+python3 -m pytest tests -q                 # 23 testów
 python3 -m cultureroute plan --city Berlin --mood curious --minutes 180 --offline
 python3 -m cultureroute plan --city Berlin --mood curious --offline --json
 python3 -m cultureroute feedback "Museum für Naturkunde" like --tags museum,science
