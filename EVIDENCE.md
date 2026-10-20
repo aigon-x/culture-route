@@ -140,3 +140,33 @@ $ python3 -m pytest tests -q -p no:warnings
 .......................                                                  [100%]
 23 passed
 ```
+
+## Limit ciała żądania w `/api/plan` (2026-10-20)
+
+Endpoint przyjmował dowolne ciało i **odbijał miasto w odpowiedzi**. Zmierzone przed zmianą:
+`POST /api/plan` z `city` = 10 mln znaków → **200 OK w 0,47 s, odpowiedź 10 000 870 B**,
+peak RSS procesu 53 → 110 MB. To nie tylko zużycie pamięci: żądanie ≈ odpowiedź, czyli
+amplifikator dla anonimowego ruchu.
+
+Po zmianie: `Content-Length` wymagany (`411` bez niego), ciało > 16 KB → `413` przed
+parsowaniem, pola ograniczone (`city` ≤ 200 znaków, `mood` ≤ 32, `minutes` 5–1440).
+Odrzucone ciało jest odczytywane i wyrzucane, więc klient widzi treść błędu.
+
+```
+$ curl -s -o /dev/null -w '%{http_code} %{time_total}\n' -X POST --data-binary @bigcity.json ...
+413 0.004
+peak RSS: 53,5 -> 54,0 MB  (było 53 -> 110 MB)
+```
+
+Regresja: `tests/test_web.py::test_oversized_body_is_refused_before_the_agent` (agent
+zmonkeypatchowany tak, by rzucił — nie może zostać wywołany), `::test_plan_fields_are_bounded`,
+`::test_content_length_policy`. Ablacja: wyłączenie `_body_rejection` → pierwszy test czerwony.
+
+```
+$ python3 -m pytest tests -q -p no:warnings
+..........................                                               [100%]
+26 passed
+```
+
+Ta sama klasa defektu wystąpiła wcześniej w life-after-code (`POST /api/analyze`) — warto
+znormalizować ją bramką w `tools/verify_wave.py`, zamiast łatać projekt po projekcie.

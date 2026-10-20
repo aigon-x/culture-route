@@ -28,3 +28,33 @@ def test_empty_city_is_still_a_200_with_reason(monkeypatch):
     response = client.post("/api/plan", json={"city": "Nowhere", "mood": "curious", "minutes": 60})
     assert response.status_code == 200
     assert "trace" in response.json()
+
+
+def test_oversized_body_is_refused_before_the_agent(monkeypatch):
+    """The city is echoed back in the route, so an unbounded body is an echo amplifier."""
+    import server as web_server
+
+    def boom(*args, **kwargs):  # pragma: no cover - only on regression
+        raise AssertionError("the agent must not see an oversized body")
+
+    monkeypatch.setattr(web_server.CultureAgent, "plan", boom)
+    body = '{"city":"' + "x" * (web_server.MAX_REQUEST_BYTES + 10)
+    body += '","mood":"curious","minutes":60}'
+    response = client.post("/api/plan", content=body, headers={"content-type": "application/json"})
+    assert response.status_code == 413
+
+
+def test_plan_fields_are_bounded():
+    assert client.post("/api/plan", json={"city": "x" * 201}).status_code == 422
+    assert client.post("/api/plan", json={"minutes": 0}).status_code == 422
+    assert client.post("/api/plan", json={"minutes": 5000}).status_code == 422
+    assert client.post("/api/plan", json={"mood": "m" * 33}).status_code == 422
+
+
+def test_content_length_policy():
+    import server as web_server
+
+    assert web_server._body_rejection(None).status_code == 411
+    assert web_server._body_rejection("not-a-number").status_code == 413
+    assert web_server._body_rejection(str(web_server.MAX_REQUEST_BYTES + 1)).status_code == 413
+    assert web_server._body_rejection(str(web_server.MAX_REQUEST_BYTES)) is None

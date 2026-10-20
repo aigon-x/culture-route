@@ -15,7 +15,7 @@ minutes. Every step is recorded in a trace.
 
 ## How we built it
 Python 3.12, standard library only: a Qloo HTTP client with cache and retry, a deterministic
-offline fixture mode, a taste model, and a bounded plan-act-observe loop. 23 unit tests, including
+offline fixture mode, a taste model, and a bounded plan-act-observe loop. 26 unit tests, including
 the negative case: live mode without an API key fails loudly instead of silently degrading.
 
 ## Challenges
@@ -26,7 +26,7 @@ the negative case: live mode without an API key fails loudly instead of silently
 ## Accomplishments
 - Deterministic, reproducible planning with a decision trace: the route is a function of
   profile, mood and budget only — shuffling the API response does not change it.
-- 23/23 tests, no network needed for the demo.
+- 26/26 tests, no network needed for the demo.
 - Clear separation between offline fixtures and live API.
 
 ## What we learned

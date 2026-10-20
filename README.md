@@ -11,7 +11,7 @@ trafienia w gust, skraca budżet, kończy gdy czas się wyczerpie albo limit kro
 
 ## Uruchomienie
 ```bash
-python3 -m pytest tests -q                 # 23 testów
+python3 -m pytest tests -q                 # 26 testów
 python3 -m cultureroute plan --city Berlin --mood curious --minutes 180 --offline
 python3 -m cultureroute plan --city Berlin --mood curious --offline --json
 python3 -m cultureroute feedback "Museum für Naturkunde" like --tags museum,science
@@ -30,6 +30,10 @@ obok pełnego śladu decyzji (`accept` / `skip` z powodem), a w nagłówku jawny
 Zrzuty z realnego przebiegu (Chromium 155, 1280×900 i 390×844, zero błędów konsoli):
 `evidence/webui-route-desktop.png`, `evidence/webui-route-mobile.png`,
 `evidence/webui-empty-desktop.png`.
+
+`POST /api/plan` przyjmuje ciało do 16 KB (większe → `413`, brak `Content-Length` → `411`),
+a pola mają limity: miasto 200 znaków, nastrój 32, minuty 5–1440. Trasa jest odbijana
+w odpowiedzi, więc bez tego limitu żądanie było też amplifikatorem.
 
 Tryb `--offline` korzysta z deterministycznych fixtures i jest jawnie oznaczony w wyjściu.
 Tryb live wymaga `QLOO_API_KEY`; bez klucza CLI kończy się kodem 3 i czytelnym komunikatem.
