@@ -15,7 +15,7 @@ minutes. Every step is recorded in a trace.
 
 ## How we built it
 Python 3.12, standard library only: a Qloo HTTP client with cache and retry, a deterministic
-offline fixture mode, a taste model, and a bounded plan-act-observe loop. 26 unit tests, including
+offline fixture mode, a taste model, and a bounded plan-act-observe loop. 30 unit tests, including
 the negative case: live mode without an API key fails loudly instead of silently degrading.
 
 ## Challenges
@@ -26,7 +26,9 @@ the negative case: live mode without an API key fails loudly instead of silently
 ## Accomplishments
 - Deterministic, reproducible planning with a decision trace: the route is a function of
   profile, mood and budget only — shuffling the API response does not change it.
-- 26/26 tests, no network needed for the demo.
+- 30/30 tests, no network needed for the demo.
+- The browser demo closes the loop: rating a stop ("More like this" / "Not for me") updates the
+  tag weights and rebuilds the route in place, with the weight change shown next to the timeline.
 - Clear separation between offline fixtures and live API.
 
 ## What we learned
@@ -36,7 +38,7 @@ opaque recommendation into something a user can argue with.
 ## What's next
 - Real Qloo key + entity embeddings for taste.
 - Distance-aware ordering between stops.
-- Feedback loop across sessions with a persistent profile.
+- Profile that follows the user across devices (today it persists to a JSON state file).
 
 ## Built with
 python, qloo-api, json, urllib

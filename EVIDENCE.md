@@ -170,3 +170,55 @@ $ python3 -m pytest tests -q -p no:warnings
 
 Ta sama klasa defektu wystąpiła wcześniej w life-after-code (`POST /api/analyze`) — warto
 znormalizować ją bramką w `tools/verify_wave.py`, zamiast łatać projekt po projekcie.
+
+## Pętla observe w demo (2026-10-20)
+
+Demo w przeglądarce miało tylko połowę pętli: `POST /api/plan` liczył trasę, ale profilu gustu
+nie pokazywało i nie dało się go zmienić. `TasteProfile.observe` był wołany wyłącznie z CLI
+(`cultureroute/cli.py:54`), a `web/server.py:64` czytał `state/taste.json` bez zapisu.
+
+Zmierzone przed (uvicorn :8753, pusty profil):
+
+```
+$ curl -o /dev/null -w '%{http_code}' -X POST .../api/feedback -d '{"tags":["science"],"liked":true}'
+404
+$ curl -o /dev/null -w '%{http_code}' .../api/taste
+404
+```
+
+Po: `GET /api/taste` zwraca wagi, `POST /api/feedback` je zmienia i zapisuje, a `POST /api/plan`
+niesie pole `taste`. Pomiar na pustym profilu (TestClient, `CULTUREROUTE_TASTE_PATH` → plik tymczasowy):
+
+```
+feedback {"tags":["AMBIENT"," piano ","slow"],"liked":true}
+  -> ambient 0.00→0.25, piano 0.00→0.25, slow 0.00→0.25, persisted=true
+plan Berlin/energetic/180 przed: 1 przystanek  (Berghain Residents,   affinity 0.00)
+plan Berlin/energetic/180 po:    4 przystanki  (Nils Frahm 0.25, Kleiner Garten 0.08, ...)
+```
+
+Ten sam przebieg w Chromium 155, 1280×900 (uvicorn :8756, pusty profil, 0 błędów konsoli):
+4 przystanki z `affinity 0.00`, pasek „Your taste" pusty → klik **More like this** przy drugim
+przystanku → komunikat `Profile updated (science 0.00→0.25, history 0.00→0.25, slow 0.00→0.25)
+— rebuilding the route.` → trasa przerysowana (`Sci-Fi Night: Metropolis` 0.25), chipy
+`science +0.25`, `history +0.25`, `slow +0.25`. Przy 390×844 `scrollWidth == innerWidth == 390`.
+Zrzut: `evidence/webui-taste-after-feedback.png`.
+
+Regresja: `tests/test_web.py::test_feedback_changes_the_next_route`,
+`::test_feedback_needs_a_real_tag`, `::test_taste_endpoint_reports_the_same_profile_the_plan_uses`,
+`::test_index_lets_a_visitor_rate_a_stop`. Ablacja (usunięcie `_persist` i wywołania
+`profile.observe`) → pierwszy test czerwony, pozostałe zielone.
+
+```
+$ python3 -m pytest tests -q -p no:warnings
+30 passed in 1.21s
+```
+
+Ścieżka live nadal nieprzebiegnięta: klucza z formularza organizatora nie mamy. Zmierzone
+2026-10-20, że host odpowiada i wymaga klucza, więc brak jest po stronie dostępu, nie kodu:
+
+```
+$ curl -s -o /tmp/qloo-probe.txt -w '%{http_code} %{time_total}' \
+    'https://hackathon.api.qloo.com/v2/insights?filter.type=urn:entity:place'
+401 0.421781
+{"error":{"reason":"No API key found in request","message":"Unauthorized","code":401}}
+```

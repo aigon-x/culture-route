@@ -11,7 +11,7 @@ trafienia w gust, skraca budżet, kończy gdy czas się wyczerpie albo limit kro
 
 ## Uruchomienie
 ```bash
-python3 -m pytest tests -q                 # 26 testów
+python3 -m pytest tests -q                 # 30 testów
 python3 -m cultureroute plan --city Berlin --mood curious --minutes 180 --offline
 python3 -m cultureroute plan --city Berlin --mood curious --offline --json
 python3 -m cultureroute feedback "Museum für Naturkunde" like --tags museum,science
@@ -26,6 +26,13 @@ Strona pokazuje trasę jako timeline (godzina startu, czas trwania, typ, uzasadn
 obok pełnego śladu decyzji (`accept` / `skip` z powodem), a w nagłówku jawny tryb pracy
 (`OFFLINE FIXTURES` albo `LIVE QLOO`). Nic nie wychodzi do sieci, dopóki nie ustawisz
 `QLOO_API_KEY` — wtedy ten sam endpoint odpowiada z live Qloo.
+
+Demo domyka pętlę observe: pasek **Your taste** pokazuje wagi profilu, a przy każdym przystanku
+są przyciski **More like this** / **Not for me**. Klik woła `POST /api/feedback`, aktualizuje wagi
+(`TasteProfile.observe`) i od razu przelicza trasę; komunikat pokazuje zmianę (np. `science
+0.00→0.25`). Profil trzyma `GET /api/taste` i pole `taste` w odpowiedzi `POST /api/plan`;
+stan zapisuje się do `state/taste.json` (ścieżkę można podmienić zmienną
+`CULTUREROUTE_TASTE_PATH`).
 
 Zrzuty z realnego przebiegu (Chromium 155, 1280×900 i 390×844, zero błędów konsoli):
 `evidence/webui-route-desktop.png`, `evidence/webui-route-mobile.png`,
