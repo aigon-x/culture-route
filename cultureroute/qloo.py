@@ -40,9 +40,14 @@ class QlooClient:
         with open(FIXTURES, encoding="utf-8") as fh:
             return json.load(fh)
 
-    def _key(self, path: str, params: dict) -> str:
+    @staticmethod
+    def idempotency_key(path: str, params: dict) -> str:
+        """Stable key for a read: retries of the same query must hit the cache, not the API."""
         raw = path + "?" + urllib.parse.urlencode(sorted(params.items()))
         return hashlib.sha256(raw.encode()).hexdigest()
+
+    def _key(self, path: str, params: dict) -> str:
+        return self.idempotency_key(path, params)
 
     @staticmethod
     def _filter_offline(payload: dict, params: dict) -> dict:
