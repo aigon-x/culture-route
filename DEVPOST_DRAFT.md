@@ -45,3 +45,7 @@ python, qloo-api, json, urllib
 python3 -m pytest tests -q
 python3 -m cultureroute plan --city Berlin --mood curious --minutes 180 --offline
 ```
+
+## Links
+- Repository: https://github.com/aigon-x/culture-route
+- Demo video: `<VIDEO_URL>`
