@@ -1,0 +1,108 @@
+{
+ "/v2/entities/music": {
+  "results": [
+   {
+    "name": "Nils Frahm",
+    "tags": [
+     "ambient",
+     "piano",
+     "slow"
+    ],
+    "typical_minutes": 35
+   },
+   {
+    "name": "Berghain Residents",
+    "tags": [
+     "electronic",
+     "nightlife",
+     "live-music"
+    ],
+    "typical_minutes": 35
+   },
+   {
+    "name": "Max Richter Ensemble",
+    "tags": [
+     "ambient",
+     "essay",
+     "slow"
+    ],
+    "typical_minutes": 35
+   }
+  ]
+ },
+ "/v2/entities/movie": {
+  "results": [
+   {
+    "name": "Documentary: Rivers of Berlin",
+    "tags": [
+     "documentary",
+     "essay",
+     "history"
+    ],
+    "typical_minutes": 60
+   },
+   {
+    "name": "Sci-Fi Night: Metropolis",
+    "tags": [
+     "science",
+     "history",
+     "slow"
+    ],
+    "typical_minutes": 60
+   }
+  ]
+ },
+ "/v2/entities/book": {
+  "results": [
+   {
+    "name": "Berlin: A City in Fragments",
+    "tags": [
+     "essay",
+     "history",
+     "slow"
+    ],
+    "typical_minutes": 30
+   },
+   {
+    "name": "The Science of Sound",
+    "tags": [
+     "science",
+     "music",
+     "curious"
+    ],
+    "typical_minutes": 30
+   }
+  ]
+ },
+ "/v2/entities/place": {
+  "results": [
+   {
+    "name": "Museum für Naturkunde",
+    "tags": [
+     "museum",
+     "science",
+     "gallery"
+    ],
+    "typical_minutes": 40
+   },
+   {
+    "name": "Kleiner Garten",
+    "tags": [
+     "museum",
+     "slow",
+     "gallery"
+    ],
+    "typical_minutes": 40
+   },
+   {
+    "name": "Workshop: Analogue Synthesizers",
+    "tags": [
+     "workshop",
+     "music",
+     "curious"
+    ],
+    "typical_minutes": 40
+   }
+  ]
+ }
+}
