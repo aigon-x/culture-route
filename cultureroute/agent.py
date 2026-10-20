@@ -1,4 +1,9 @@
-"""Plan-act-observe loop: propose categories, query Qloo, score, refine, emit a route."""
+"""Plan-act-observe loop over Qloo /v2/insights.
+
+Each step asks Qloo for one entity type in the city, scores what comes back against the
+taste profile and the mood, and skips a candidate that does not fit the remaining time
+instead of truncating it (a 60-minute film is not a 20-minute stop).
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -6,12 +11,13 @@ from dataclasses import dataclass, field
 from .qloo import QlooClient
 from .taste import TasteProfile
 
-CATEGORY_PATHS = {
-    "music": "/v2/entities/music",
-    "film": "/v2/entities/movie",
-    "book": "/v2/entities/book",
-    "place": "/v2/entities/place",
+FILTER_TYPES = {
+    "music": "urn:entity:artist",
+    "film": "urn:entity:movie",
+    "book": "urn:entity:book",
+    "place": "urn:entity:place",
 }
+DEFAULT_MINUTES = {"music": 35, "film": 60, "book": 30, "place": 40}
 MOOD_TAGS = {
     "reflective": ["ambient", "documentary", "essay", "museum", "slow"],
     "energetic": ["electronic", "action", "thriller", "live-music", "nightlife"],
@@ -49,42 +55,68 @@ class CultureAgent:
         self.taste = taste
 
     def _query(self, kind: str, city: str) -> list[dict]:
-        path = CATEGORY_PATHS[kind]
-        payload = self.client.get(path, city=city, limit=12)
-        return payload.get("results", payload.get("entities", []))
+        interests = [t for t, w in self.taste.top(5) if w > 0]
+        params = {
+            "filter.type": FILTER_TYPES[kind],
+            "filter.location.query": city,
+            "feature.explainability": "true",
+        }
+        if interests:
+            params["signal.interests"] = ",".join(interests)
+        payload = self.client.get("/v2/insights", **params)
+        results = payload.get("results", {})
+        return results.get("entities", []) if isinstance(results, dict) else results
+
+    def _score(self, entity: dict, mood_tags: list[str]) -> tuple[float, list[str]]:
+        tags = [str(t).lower() for t in entity.get("tags", [])]
+        affinity = self.taste.affinity(tags)
+        mood_bonus = 0.3 if set(tags) & set(mood_tags) else 0.0
+        return affinity + mood_bonus, tags
 
     def plan(self, city: str, mood: str, minutes: int) -> Route:
         route = Route(city=city, mood=mood)
         mood_tags = MOOD_TAGS.get(mood, [])
         budget = minutes
         used: set[str] = set()
+        exhausted: set[str] = set()
+        order = ["place", "music", "film", "book", "place", "music"]
         for step in range(self.MAX_STEPS):
             if budget <= 0:
                 break
-            kind = ["music", "place", "film", "book", "place", "music"][step % 6]
+            kind = next((k for k in order[step:] + order[:step] if k not in exhausted), None)
+            if kind is None:
+                route.trace.append({"step": step, "decision": "stop",
+                                    "reason": "all entity types exhausted"})
+                break
             try:
                 candidates = self._query(kind, city)
             except (KeyError, RuntimeError) as exc:
+                exhausted.add(kind)
                 route.trace.append({"step": step, "kind": kind, "error": str(exc)[:120]})
                 continue
-            scored = []
-            for entity in candidates:
-                name = entity.get("name", "unknown")
-                if name in used:
-                    continue
-                tags = [str(t).lower() for t in entity.get("tags", [])]
-                affinity = self.taste.affinity(tags)
-                mood_bonus = 0.3 if set(tags) & set(mood_tags) else 0.0
-                scored.append((affinity + mood_bonus, entity, tags))
-            scored.sort(key=lambda row: row[0], reverse=True)
-            best = scored[0] if scored else None
-            if not best or best[0] <= 0:
+            if not candidates:
+                exhausted.add(kind)
                 route.trace.append({"step": step, "kind": kind, "decision": "skip",
-                                    "reason": "no candidate above zero affinity"})
+                                    "reason": "no entities returned"})
                 continue
-            score, entity, tags = best
-            duration = min(int(entity.get("typical_minutes", 45)), budget)
-            used.add(entity.get("name", "unknown"))
+            best = None
+            for entity in candidates:
+                key = entity.get("entity_id") or entity.get("name", "")
+                if key in used:
+                    continue
+                score, tags = self._score(entity, mood_tags)
+                duration = int((entity.get("properties") or {}).get(
+                    "typical_minutes", DEFAULT_MINUTES[kind]))
+                if duration > budget:
+                    continue
+                if best is None or score > best[0]:
+                    best = (score, entity, tags, duration)
+            if best is None:
+                route.trace.append({"step": step, "kind": kind, "decision": "skip",
+                                    "reason": "no candidate fits the remaining time"})
+                continue
+            score, entity, tags, duration = best
+            used.add(entity.get("entity_id") or entity.get("name", ""))
             route.items.append(RouteItem(
                 kind=kind, name=entity.get("name", "unknown"), tags=tags,
                 score=round(float(score), 3), minutes=duration,

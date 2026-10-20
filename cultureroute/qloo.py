@@ -9,7 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-DEFAULT_BASE = "https://api.qloo.com"
+DEFAULT_BASE = "https://hackathon.api.qloo.com"
 FIXTURES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "fixtures", "offline_responses.json")
 
@@ -44,6 +44,22 @@ class QlooClient:
         raw = path + "?" + urllib.parse.urlencode(sorted(params.items()))
         return hashlib.sha256(raw.encode()).hexdigest()
 
+    @staticmethod
+    def _filter_offline(payload: dict, params: dict) -> dict:
+        """Offline fixtures hold one pool; select the requested entity type.
+
+        Entity ids carry their type (`qloo:artist/...`, `qloo:movie/...`), so the
+        offline path mirrors what `filter.type` does on the live API.
+        """
+        wanted = params.get("filter.type")
+        entities = (payload.get("results") or {}).get("entities", [])
+        if not wanted or not entities:
+            return payload
+        prefix = wanted.rsplit(":", 1)[-1]
+        picked = [e for e in entities
+                  if str(e.get("entity_id", "")).split(":")[-1].split("/")[0] == prefix]
+        return {"results": {"entities": picked}}
+
     def get(self, path: str, **params) -> dict:
         """GET path with cache (120 s) and retry on 5xx/timeout."""
         cache_key = self._key(path, params)
@@ -55,6 +71,7 @@ class QlooClient:
             payload = self._fixtures.get(path.split("?")[0])
             if payload is None:
                 raise KeyError(f"no offline fixture for {path}")
+            payload = self._filter_offline(payload, params)
             self._cache[cache_key] = (time.time(), payload)
             return payload
         url = f"{self.base_url}{path}?{urllib.parse.urlencode(params)}"

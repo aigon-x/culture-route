@@ -11,7 +11,7 @@ trafienia w gust, skraca budżet, kończy gdy czas się wyczerpie albo limit kro
 
 ## Uruchomienie
 ```bash
-python3 -m pytest tests -q                 # 12 testów
+python3 -m pytest tests -q                 # 14 testów
 python3 -m cultureroute plan --city Berlin --mood curious --minutes 180 --offline
 python3 -m cultureroute plan --city Berlin --mood curious --offline --json
 python3 -m cultureroute feedback "Museum für Naturkunde" like --tags museum,science
@@ -22,7 +22,7 @@ Tryb live wymaga `QLOO_API_KEY`; bez klucza CLI kończy się kodem 3 i czytelnym
 ## Ograniczenia
 - Model gustu to suma wag tagów, nie embeddingi; dla małych profili affinity bywa 0 i decyduje
   dopasowanie do nastroju.
-- Fixtures pokrywają cztery ścieżki Qloo; live korzysta z `https://api.qloo.com` i wymaga klucza
+- Fixtures pokrywają cztery ścieżki Qloo; live korzysta z `https://hackathon.api.qloo.com` i wymaga klucza
   z formularza organizatora.
 - Brak geolokalizacji trasy — kolejność wynika z budżetu i trafności, nie z odległości.
 
