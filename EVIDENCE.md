@@ -90,3 +90,24 @@ $ python3 -m pytest tests -q -p no:warnings
 
 Ten wynik nie mierzy trafności kulturalnej trasy — mierzy, czy ranking w ogóle reaguje na
 wejście i czy jest powtarzalny. Doboru miejsc nie ocenialiśmy z ludźmi; to pozostaje otwarte.
+
+## Demo w przeglądarce (2026-10-20)
+
+```
+$ python3 -m uvicorn web.server:app --host 127.0.0.1 --port 8749
+$ curl -s http://127.0.0.1:8749/api/health
+{"ok":true,"offline":true}
+```
+
+Chromium 155, 1280×900: nagłówek pokazuje `OFFLINE FIXTURES`, formularz startuje z
+`Berlin / curious / 180`. Po „Plan the evening" strona renderuje **4 przystanki 19:00–21:50**
+z typem, czasem trwania i uzasadnieniem („affinity 0.17, mood 2/5") obok **śladu decyzji**
+(6 kroków: accept/skip z powodem), nagłówek karty: „4 stops, 19:00–21:50 · Berlin · curious".
+0 błędów konsoli. Przy 390×844 `scrollWidth == innerWidth == 390` — brak poziomego przewijania.
+
+Zrzuty: `evidence/webui-route-desktop.png`, `evidence/webui-route-mobile.png`,
+`evidence/webui-empty-desktop.png`.
+
+To jest ten sam agent co w CLI: `POST /api/plan` woła `CultureAgent.plan` bez zmian, a tryb
+w nagłówku pochodzi z obecności `QLOO_API_KEY`. Nie mierzyliśmy tu żywego Qloo — strona
+w tym przebiegu działała na fixtures.

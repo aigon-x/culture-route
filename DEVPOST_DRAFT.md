@@ -45,8 +45,14 @@ python, qloo-api, json, urllib
 ```bash
 python3 -m pytest tests -q
 python3 -m cultureroute plan --city Berlin --mood curious --minutes 180 --offline
+
+# the same agent in a browser: route timeline + decision trace, no key needed
+python3 -m uvicorn web.server:app --host 127.0.0.1 --port 8099   # http://127.0.0.1:8099/
 ```
 
 ## Links
 - Repository: https://github.com/aigon-x/culture-route
-- Demo video: `<VIDEO_URL>`
+- Screens: `evidence/webui-route-desktop.png`, `evidence/webui-route-mobile.png`
+  (real Chromium runs, not mockups)
+- Demo video: not recorded yet — the web demo above runs in one command and shows the same
+  route and trace.
